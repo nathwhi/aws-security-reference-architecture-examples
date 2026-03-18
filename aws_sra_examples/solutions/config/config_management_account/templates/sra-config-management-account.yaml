@@ -55,6 +55,8 @@ Metadata:
         default: Organization ID
       pResourceTypes:
         default: (Optional) Resource Types
+      pConfigDeliveryS3BucketName:
+        default: (Optional) Config Delivery S3 Bucket Name
 
 Parameters:
   pAllConfigTopicName:
@@ -115,6 +117,13 @@ Parameters:
       (Optional) A list of valid AWS resource types to include in this recording group. Eg. AWS::CloudTrail::Trail. If 'All Supported' parameter is
       set to 'false', then this parameter becomes required.
     Type: String
+  pConfigDeliveryS3BucketName:
+    AllowedPattern: '^$|^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$'
+    Default: ''
+    Description:
+      (Optional) S3 bucket name for Config delivery. If empty, defaults to aws-controltower-logs-{LogArchiveAccountId}-{HomeRegion}.
+      For Control Tower 4.0+, use the SRA bucket (e.g., sra-config-org-delivery-{LogArchiveAccountId}-{HomeRegion}).
+    Type: String
 
 Rules:
   ResourceTypesValidation:
@@ -127,6 +136,7 @@ Conditions:
   cIsAllSupported: !Equals [!Ref pAllSupported, 'true']
   cIsUsingKmsKey: !Not [!Equals [!Ref pKmsKeyArn, '']]
   cIsHomeRegion: !Equals [!Ref 'AWS::Region', !Ref pHomeRegion]
+  cUseCustomBucket: !Not [!Equals [!Ref pConfigDeliveryS3BucketName, '']]
 
 Mappings:
   mSettings:
@@ -153,7 +163,10 @@ Resources:
           - mSettings
           - FrequencyMap
           - !Ref pFrequency
-      S3BucketName: !Sub aws-controltower-logs-${pLogArchiveAccountId}-${pHomeRegion}
+      S3BucketName: !If
+        - cUseCustomBucket
+        - !Ref pConfigDeliveryS3BucketName
+        - !Sub aws-controltower-logs-${pLogArchiveAccountId}-${pHomeRegion}
       S3KeyPrefix: !Ref pOrganizationId
       S3KmsKeyArn: !If
         - cIsUsingKmsKey
